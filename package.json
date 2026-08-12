@@ -14,7 +14,7 @@
     "admin:dev": "tsx watch admin/server.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@grammyjs/conversations": "^2.0.3",
@@ -29,13 +29,14 @@
     "grammy": "^1.35.0",
     "multer": "^2.2.0",
     "typescript": "^5.8.2",
+    "ws": "^8.21.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.3"
   }
 }
-

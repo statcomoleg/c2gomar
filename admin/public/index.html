@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админка практикума</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="login-view" class="login-wrap hidden">
+    <form id="login-form" class="login-card">
+      <div class="brand-mark"></div>
+      <h1>Админка практикума</h1>
+      <p class="muted">Только localhost · полный контроль</p>
+      <label>Пароль
+        <input type="password" id="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Войти</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <div id="app-view" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand-mark sm"></div>
+        <div>
+          <strong>Практикум</strong>
+          <div class="muted tiny">локальная панель</div>
+        </div>
+      </div>
+      <nav id="nav">
+        <button data-tab="dashboard" class="active">Обзор</button>
+        <button data-tab="review">Проверка <span id="badge-pending" class="badge hidden">0</span></button>
+        <button data-tab="users">Участники</button>
+        <button data-tab="ranking">Рейтинг</button>
+        <button data-tab="tasks">Задания</button>
+        <button data-tab="broadcast">Рассылка</button>
+        <button data-tab="onboarding">Онбординг</button>
+        <button data-tab="ledger">Журнал баллов</button>
+        <button data-tab="settings">Настройки</button>
+      </nav>
+      <button id="logout" class="ghost sidebar-foot">Выйти</button>
+    </aside>
+
+    <main class="main">
+      <section id="tab-dashboard" class="tab">
+        <h2>Обзор</h2>
+        <div class="cards" id="dash-cards"></div>
+        <p class="muted" id="dash-settings"></p>
+      </section>
+
+      <section id="tab-review" class="tab hidden">
+        <div class="row-between">
+          <h2>Проверка заданий</h2>
+          <select id="review-status">
+            <option value="pending">На проверке</option>
+            <option value="approved">Одобренные</option>
+            <option value="rejected">На доработку</option>
+          </select>
+        </div>
+        <div id="review-list" class="stack"></div>
+      </section>
+
+      <section id="tab-users" class="tab hidden">
+        <div class="row-between">
+          <h2>Участники</h2>
+          <input id="users-q" placeholder="Поиск: id, @username, имя" />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Имя</th><th>Баллы</th><th>Канал</th><th>Онбординг</th><th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-ranking" class="tab hidden">
+        <h2>Рейтинг</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Участник</th><th>Баллы</th><th>Канал</th></tr></thead>
+            <tbody id="ranking-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-tasks" class="tab hidden">
+        <div class="row-between">
+          <h2>Задания</h2>
+        </div>
+        <form id="task-form" class="panel grid-form">
+          <h3>Добавить задание</h3>
+          <label>Тип
+            <select name="type"><option value="pre">ПДЗ</option><option value="main">ДЗ</option></select>
+          </label>
+          <label>Описание
+            <input name="description" maxlength="500" required />
+          </label>
+          <label>Ссылка на пост
+            <input name="channel_post_link" placeholder="https://t.me/c/.../123" required />
+          </label>
+          <button type="submit">Создать</button>
+          <p id="task-form-msg" class="muted"></p>
+        </form>
+        <div id="tasks-list" class="stack"></div>
+      </section>
+
+      <section id="tab-broadcast" class="tab hidden">
+        <h2>Рассылка</h2>
+        <form id="broadcast-form" class="panel grid-form">
+          <label>Текст (HTML: &lt;b&gt;, &lt;i&gt;, &lt;a href=""&gt;)
+            <textarea name="text" rows="8" required></textarea>
+          </label>
+          <label>Картинка (необязательно)
+            <input type="file" name="photo" accept="image/*" />
+          </label>
+          <label>Аудитория
+            <select name="audience" id="bcast-audience">
+              <option value="all">Все</option>
+              <option value="gt">Рейтинг выше N</option>
+              <option value="lt">Рейтинг ниже N</option>
+            </select>
+          </label>
+          <label id="bcast-n-wrap" class="hidden">Порог N
+            <input name="n" type="number" value="0" />
+          </label>
+          <p class="muted">Получателей: <strong id="bcast-count">—</strong></p>
+          <button type="button" id="bcast-preview">Посчитать</button>
+          <button type="submit">Запустить рассылку</button>
+          <p id="bcast-msg" class="muted"></p>
+        </form>
+      </section>
+
+      <section id="tab-onboarding" class="tab hidden">
+        <h2>Онбординг</h2>
+        <p class="muted">Правки сразу в БД — без деплоя бота.</p>
+        <div id="onboarding-list" class="stack"></div>
+      </section>
+
+      <section id="tab-ledger" class="tab hidden">
+        <div class="row-between">
+          <h2>Журнал баллов</h2>
+          <input id="ledger-user" placeholder="Фильтр user id" />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Когда</th><th>User</th><th>Баллы</th><th>Причина</th><th>Админ</th></tr>
+            </thead>
+            <tbody id="ledger-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tab hidden">
+        <h2>Настройки марафона</h2>
+        <form id="settings-form" class="panel grid-form">
+          <label>Старт марафона (ISO / timestamptz)
+            <input name="marathon_start_at" required />
+          </label>
+          <label>channel_id
+            <input name="channel_id" required />
+          </label>
+          <label>discussion_group_id
+            <input name="discussion_group_id" required />
+          </label>
+          <label>Invite-ссылка канала
+            <input name="channel_invite_link" />
+          </label>
+          <button type="submit">Сохранить</button>
+          <p id="settings-msg" class="muted"></p>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -24,6 +24,19 @@ function resolveAsset(rel: string): InputFile {
   return new InputFile(path.resolve(process.cwd(), rel));
 }
 
+/** Без width/height Telegram (особенно iOS) часто рисует превью как 1:1 */
+const VIDEO_META: Record<string, { width: number; height: number; duration: number }> = {
+  'assets/onboarding/msg2.mp4': { width: 1280, height: 720, duration: 35 },
+};
+
+function videoSendOptions(relPath: string | null) {
+  const meta = relPath ? VIDEO_META[relPath.replace(/\\/g, '/')] : undefined;
+  return {
+    supports_streaming: true as const,
+    ...(meta ?? {}),
+  };
+}
+
 /** Не блокируем event loop: планируем шаги через setTimeout */
 export async function startOnboarding(api: Api, userId: number): Promise<void> {
   const messages = await onboardingRepo.listOnboardingMessages();
@@ -97,7 +110,15 @@ async function sendOnboardingStep(
     } else if (msg.media_type === 'video') {
       const media = msg.media_file_id || (localPaths[0] ? resolveAsset(localPaths[0]) : null);
       if (media) {
-        await api.sendVideo(userId, media, { supports_streaming: true });
+        const sent = await api.sendVideo(userId, media, videoSendOptions(localPaths[0] ?? null));
+        // Кешируем file_id после первой загрузки с корректными размерами
+        if (!msg.media_file_id && sent.video?.file_id) {
+          try {
+            await onboardingRepo.setOnboardingMedia(msg.id, 'video', sent.video.file_id);
+          } catch (cacheErr) {
+            console.warn(`[onboarding] failed to cache video file_id step=${step}`, cacheErr);
+          }
+        }
       }
       await api.sendMessage(userId, msg.text, {
         parse_mode: 'HTML',

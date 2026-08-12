@@ -15,8 +15,8 @@ export function getSupabase(): SupabaseClient {
 
   client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    // Railway/Node: нативный WebSocket есть с Node 22; ws — запасной вариант
-    realtime: { transport: ws as unknown as typeof WebSocket },
+    // Railway: полифилл WebSocket для @supabase/realtime-js
+    realtime: { transport: ws as any },
   });
   return client;
 }

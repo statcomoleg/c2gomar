@@ -91,6 +91,7 @@ async function loadTab(tab) {
     if (tab === 'ledger') await loadLedger();
     if (tab === 'settings') await loadSettings();
     if (tab === 'broadcast') await previewBroadcastCount();
+    if (tab === 'promo') await loadPromo();
   } catch (err) {
     toast(err.message);
     if (err.message === 'unauthorized') showLogin();
@@ -142,6 +143,8 @@ async function loadReview() {
           ? `<div class="actions">
               <button class="sm ok" data-act="approve3" data-id="${s.id}">+3</button>
               <button class="sm ok" data-act="approve10" data-id="${s.id}">+10</button>
+              <button class="sm ok" data-act="approve20" data-id="${s.id}">+20</button>
+              <button class="sm ok" data-act="approve40" data-id="${s.id}">+40</button>
               <button class="sm danger" data-act="reject" data-id="${s.id}">На доработку</button>
             </div>`
           : `<p class="muted tiny">${s.status}${s.points_awarded != null ? ` · +${s.points_awarded}` : ''}</p>`;
@@ -268,15 +271,28 @@ async function loadRanking() {
     .join('');
 }
 
+let tasksHidePending = false;
+
 async function loadTasks() {
   const { tasks } = await api('/api/tasks');
-  $('#tasks-list').innerHTML = tasks
+  const filterBtn = $('#tasks-filter-btn');
+  if (filterBtn) {
+    filterBtn.textContent = tasksHidePending
+      ? 'Показать все задания'
+      : 'Скрыть задания на проверке';
+    filterBtn.classList.toggle('ghost', !tasksHidePending);
+  }
+
+  const visible = tasksHidePending ? tasks.filter((t) => t.pending_count === 0) : tasks;
+
+  $('#tasks-list').innerHTML = visible
     .map(
       (t) => `<article class="item">
       <div class="item-head">
         <div>
           <strong>${t.label}</strong> · ${t.type === 'pre' ? 'ПДЗ' : 'ДЗ'}
           ${t.is_active ? '' : ' · <span class="error">выкл</span>'}
+          ${t.pending_count > 0 ? ` · <span class="badge" style="background:var(--warning,#f59e0b)">${t.pending_count} на проверке</span>` : ''}
           <div class="muted">${escapeHtml(t.description)}</div>
           <div class="mono muted tiny">msg ${t.channel_message_id} · disc ${t.discussion_message_id ?? '—'}</div>
         </div>
@@ -470,6 +486,102 @@ $('#settings-form').addEventListener('submit', async (e) => {
     toast('Настройки обновлены');
   } catch (err) {
     $('#settings-msg').textContent = err.message;
+  }
+});
+
+// ── Промо-коды ───────────────────────────────────────────────────────────────
+
+async function loadPromo() {
+  const { codes } = await api('/api/promo-codes');
+  const box = $('#promo-list');
+  if (!codes.length) {
+    box.innerHTML = '<div class="panel muted">Промо-кодов пока нет</div>';
+  } else {
+    box.innerHTML = codes
+      .map(
+        (c) => `<article class="item">
+        <div class="item-head">
+          <div>
+            <strong class="mono">${escapeHtml(c.code)}</strong>
+            &nbsp;·&nbsp;<span class="ok">+${c.points} баллов</span>
+            ${!c.is_active ? ' · <span class="error">выкл</span>' : ''}
+          </div>
+          <div class="muted tiny">
+            Использований: ${c.used_count}${c.max_uses > 0 ? ' / ' + c.max_uses : ' (∞)'}
+          </div>
+        </div>
+        <div class="actions">
+          <button class="sm ghost" data-promo-toggle="${c.id}" data-active="${c.is_active ? '1' : '0'}">
+            ${c.is_active ? 'Выключить' : 'Включить'}
+          </button>
+          <button class="sm danger" data-promo-del="${c.id}">Удалить</button>
+        </div>
+      </article>`,
+      )
+      .join('');
+  }
+
+  $$('[data-promo-toggle]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api(`/api/promo-codes/${btn.dataset.promoToggle}`, {
+          method: 'PATCH',
+          body: { is_active: btn.dataset.active !== '1' },
+        });
+        await loadPromo();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+
+  $$('[data-promo-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Удалить этот промо-код?')) return;
+      try {
+        await api(`/api/promo-codes/${btn.dataset.promoDel}`, { method: 'DELETE' });
+        toast('Удалено');
+        await loadPromo();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+$('#promo-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  $('#promo-form-msg').textContent = '';
+  const code = String(fd.get('code') || '').trim();
+  const points = Number(fd.get('points'));
+  const maxUses = Number(fd.get('max_uses') || 0);
+  if (!code || /\s/.test(code)) {
+    $('#promo-form-msg').textContent = 'Ключ — одно слово без пробелов';
+    return;
+  }
+  if (!Number.isInteger(points) || points <= 0) {
+    $('#promo-form-msg').textContent = 'Баллы — целое > 0';
+    return;
+  }
+  try {
+    const r = await api('/api/promo-codes', {
+      method: 'POST',
+      body: { code, points, max_uses: maxUses },
+    });
+    $('#promo-form-msg').textContent = `Создан: ${r.code.code}`;
+    e.target.reset();
+    await loadPromo();
+  } catch (err) {
+    $('#promo-form-msg').textContent = err.message;
+  }
+});
+
+// ── Tasks filter ──────────────────────────────────────────────────────────────
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'tasks-filter-btn') {
+    tasksHidePending = !tasksHidePending;
+    loadTasks().catch(() => {});
   }
 });
 

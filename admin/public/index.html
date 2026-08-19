@@ -41,6 +41,7 @@
         <button data-tab="broadcast">Рассылка</button>
         <button data-tab="onboarding">Онбординг</button>
         <button data-tab="ledger">Журнал баллов</button>
+        <button data-tab="promo">Промо-ключи</button>
         <button data-tab="settings">Настройки</button>
       </nav>
       <button id="logout" class="ghost sidebar-foot">Выйти</button>
@@ -95,6 +96,7 @@
       <section id="tab-tasks" class="tab hidden">
         <div class="row-between">
           <h2>Задания</h2>
+          <button id="tasks-filter-btn" class="sm ghost">Скрыть задания на проверке</button>
         </div>
         <form id="task-form" class="panel grid-form">
           <h3>Добавить задание</h3>
@@ -158,6 +160,25 @@
             <tbody id="ledger-tbody"></tbody>
           </table>
         </div>
+      </section>
+
+      <section id="tab-promo" class="tab hidden">
+        <h2>Промо-ключи</h2>
+        <form id="promo-form" class="panel grid-form">
+          <h3>Добавить ключ</h3>
+          <label>Ключ (одно слово, точное совпадение)
+            <input name="code" placeholder="MARATHON2026" required autocomplete="off" />
+          </label>
+          <label>Баллов за активацию
+            <input name="points" type="number" min="1" required />
+          </label>
+          <label>Максимум активаций (0 = безлимит)
+            <input name="max_uses" type="number" min="0" value="0" />
+          </label>
+          <button type="submit">Создать</button>
+          <p id="promo-form-msg" class="muted"></p>
+        </form>
+        <div id="promo-list" class="stack"></div>
       </section>
 
       <section id="tab-settings" class="tab hidden">

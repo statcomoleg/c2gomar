@@ -13,7 +13,7 @@ import {
   runBroadcast,
   type BroadcastAudience,
 } from '../src/services/broadcast';
-import { submissionsRepo, tasksRepo } from '../src/db/repositories';
+import { submissionsRepo, tasksRepo, promoCodesRepo } from '../src/db/repositories';
 import * as userTexts from '../src/bot/texts/user';
 
 const PORT = Number(process.env.ADMIN_PORT || 3737);
@@ -333,9 +333,15 @@ app.post('/api/submissions/:id/review', requireAuth, async (req, res) => {
       return;
     }
 
-    const points = action === 'approve10' ? 10 : action === 'approve3' ? 3 : Number(req.body?.points);
-    if (![3, 10].includes(points) && !(Number.isInteger(points) && points !== 0)) {
-      res.status(400).json({ error: 'Укажите action approve3|approve10|reject или points' });
+    const presetMap: Record<string, number> = {
+      approve3: 3,
+      approve10: 10,
+      approve20: 20,
+      approve40: 40,
+    };
+    const points = presetMap[action] ?? Number(req.body?.points);
+    if (!Number.isInteger(points) || points === 0) {
+      res.status(400).json({ error: 'Укажите action approve3|approve10|approve20|approve40|reject или points' });
       return;
     }
     const pts = Number.isFinite(points) ? points : 3;
@@ -378,14 +384,28 @@ app.post('/api/submissions/:id/review', requireAuth, async (req, res) => {
 app.get('/api/tasks', requireAuth, async (_req, res) => {
   try {
     const sb = getSupabase();
-    const { data, error } = await sb
-      .from('tasks')
-      .select(
-        'id, type, label, description, channel_post_link, channel_message_id, discussion_message_id, is_active, created_at',
-      )
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json({ tasks: data ?? [] });
+    const [tasksRes, pendingRes] = await Promise.all([
+      sb
+        .from('tasks')
+        .select(
+          'id, type, label, description, channel_post_link, channel_message_id, discussion_message_id, is_active, created_at',
+        )
+        .order('created_at', { ascending: false }),
+      sb.from('submissions').select('task_id').eq('status', 'pending'),
+    ]);
+    if (tasksRes.error) throw tasksRes.error;
+
+    const pendingByTask: Record<number, number> = {};
+    for (const s of pendingRes.data ?? []) {
+      pendingByTask[s.task_id] = (pendingByTask[s.task_id] ?? 0) + 1;
+    }
+
+    const tasks = (tasksRes.data ?? []).map((t) => ({
+      ...t,
+      pending_count: pendingByTask[t.id] ?? 0,
+    }));
+
+    res.json({ tasks });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
@@ -607,6 +627,67 @@ app.post('/api/broadcast/preview-count', requireAuth, async (req, res) => {
     }
     const ids = await resolveAudience(audience);
     res.json({ count: ids.length });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── Промо-коды ──────────────────────────────────────────────────────────────
+
+app.get('/api/promo-codes', requireAuth, async (_req, res) => {
+  try {
+    const codes = await promoCodesRepo.listCodes();
+    res.json({ codes });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post('/api/promo-codes', requireAuth, async (req, res) => {
+  try {
+    const code = String(req.body?.code || '').trim();
+    const points = Number(req.body?.points);
+    const maxUses = Number(req.body?.max_uses ?? 0);
+
+    if (!code || /\s/.test(code)) {
+      res.status(400).json({ error: 'Ключ — одно слово без пробелов' });
+      return;
+    }
+    if (!Number.isInteger(points) || points <= 0) {
+      res.status(400).json({ error: 'points — целое > 0' });
+      return;
+    }
+
+    const created = await promoCodesRepo.createCode(code, points, maxUses);
+    res.json({ code: created });
+  } catch (e: unknown) {
+    const msg = String(e);
+    if (msg.includes('23505') || msg.toLowerCase().includes('unique')) {
+      res.status(409).json({ error: 'Такой ключ уже существует' });
+    } else {
+      res.status(500).json({ error: msg });
+    }
+  }
+});
+
+app.patch('/api/promo-codes/:id', requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const patch: Parameters<typeof promoCodesRepo.updateCode>[1] = {};
+    if (typeof req.body?.is_active === 'boolean') patch.is_active = req.body.is_active;
+    if (req.body?.points != null) patch.points = Number(req.body.points);
+    if (req.body?.max_uses != null) patch.max_uses = Number(req.body.max_uses);
+    const updated = await promoCodesRepo.updateCode(id, patch);
+    res.json({ code: updated });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.delete('/api/promo-codes/:id', requireAuth, async (req, res) => {
+  try {
+    await promoCodesRepo.deleteCode(Number(req.params.id));
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

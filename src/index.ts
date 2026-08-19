@@ -12,6 +12,7 @@ import { rankingHandler } from './bot/handlers/user/ranking';
 import { joinRequestHandler } from './bot/handlers/joinRequest';
 import { discussionCommentHandler } from './bot/handlers/discussionComment';
 import { adminMenuHandler, reviewHandler } from './bot/handlers/admin/menu';
+import { promoCodeHandler } from './bot/handlers/user/promoCode';
 import { onboardingAdminHandler } from './bot/handlers/admin/onboarding';
 import { awardConversation } from './bot/conversations/award';
 import { addTaskConversation } from './bot/conversations/addTask';
@@ -64,6 +65,7 @@ async function main() {
   bot.use(adminMenuHandler);
   bot.use(reviewHandler);
   bot.use(onboardingAdminHandler);
+  bot.use(promoCodeHandler);
 
   // Старт диалогов админа по кнопкам reply-клавиатуры
   bot.hears('Начислить', requireAdmin, async (ctx) => {

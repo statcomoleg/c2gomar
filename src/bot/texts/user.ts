@@ -113,3 +113,15 @@ export function manualPointsText(points: number, total: number): string {
 export function submissionReceivedText(): string {
   return 'Отчёт принят и отправлен на проверку куратору. Обычно ответ приходит в течение дня.';
 }
+
+export function promoCodeSuccessText(points: number, total: number): string {
+  return `🎉 Промо-код принят! Начислено <b>${points}</b> баллов.\nВаш баланс: <b>${total}</b>.`;
+}
+
+export function promoCodeAlreadyUsedText(): string {
+  return '🔒 Этот промо-код вы уже использовали.';
+}
+
+export function promoCodeInvalidText(): string {
+  return '❌ Промо-код не найден или недействителен.';
+}

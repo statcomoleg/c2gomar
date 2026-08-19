@@ -1,7 +1,7 @@
 export type TaskType = 'pre' | 'main';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected' | 'superseded';
 export type MediaType = 'photo' | 'video' | 'video_note' | 'media_group' | null;
-export type PointsReason = 'task_approved' | 'manual';
+export type PointsReason = 'task_approved' | 'manual' | `promo:${string}`;
 
 
 export interface User {

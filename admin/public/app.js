@@ -126,15 +126,28 @@ async function loadDashboard() {
 
 $('#review-status').addEventListener('change', () => loadReview());
 
+const hiddenReviewIds = new Set();
+
 async function loadReview() {
   const status = $('#review-status').value;
   const { submissions } = await api(`/api/submissions?status=${status}`);
   const box = $('#review-list');
-  if (!submissions.length) {
-    box.innerHTML = `<div class="panel muted">Пусто</div>`;
+
+  const visible = submissions.filter((s) => !hiddenReviewIds.has(s.id));
+  const hiddenCount = submissions.length - visible.length;
+
+  if (!visible.length) {
+    box.innerHTML = submissions.length
+      ? `<div class="panel muted">Все скрыты (${hiddenCount}). <button class="sm ghost" id="review-show-all">Показать все</button></div>`
+      : `<div class="panel muted">Пусто</div>`;
+    const showAll = $('#review-show-all');
+    if (showAll) showAll.addEventListener('click', () => { hiddenReviewIds.clear(); loadReview(); });
     return;
   }
-  box.innerHTML = submissions
+
+  box.innerHTML = (hiddenCount > 0
+    ? `<div class="panel muted" style="margin-bottom:8px">Скрыто: ${hiddenCount} · <button class="sm ghost" id="review-show-all">Показать все</button></div>`
+    : '') + visible
     .map((s) => {
       const task = s.tasks || {};
       const user = s.users || {};
@@ -146,9 +159,10 @@ async function loadReview() {
               <button class="sm ok" data-act="approve20" data-id="${s.id}">+20</button>
               <button class="sm ok" data-act="approve40" data-id="${s.id}">+40</button>
               <button class="sm danger" data-act="reject" data-id="${s.id}">На доработку</button>
+              <button class="sm ghost" data-act="hide" data-id="${s.id}">Скрыть</button>
             </div>`
           : `<p class="muted tiny">${s.status}${s.points_awarded != null ? ` · +${s.points_awarded}` : ''}</p>`;
-      return `<article class="item">
+      return `<article class="item" data-item-id="${s.id}">
         <div class="item-head">
           <div>
             <strong>${task.label || 'Задание'} — ${task.description || ''}</strong>
@@ -162,10 +176,22 @@ async function loadReview() {
     })
     .join('');
 
+  const showAll = $('#review-show-all');
+  if (showAll) showAll.addEventListener('click', () => { hiddenReviewIds.clear(); loadReview(); });
+
   box.querySelectorAll('button[data-act]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
+      const id = Number(btn.dataset.id);
       const action = btn.dataset.act;
+
+      if (action === 'hide') {
+        hiddenReviewIds.add(id);
+        btn.closest('article').remove();
+        const remaining = box.querySelectorAll('article').length;
+        if (remaining === 0) loadReview();
+        return;
+      }
+
       let feedback = null;
       if (action === 'reject') {
         feedback = prompt('Комментарий для участника (необязательно):') || null;
@@ -176,6 +202,7 @@ async function loadReview() {
           body: { action, feedback },
         });
         toast('Сохранено');
+        hiddenReviewIds.delete(id);
         await loadReview();
         await loadDashboard();
       } catch (err) {

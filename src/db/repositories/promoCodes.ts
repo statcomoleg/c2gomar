@@ -12,12 +12,12 @@ export interface PromoCode {
 
 const COLS = 'id, code, points, is_active, max_uses, used_count, created_at';
 
-/** Найти активный код (точное совпадение) и проверить лимит использований */
+/** Найти активный код (без учёта регистра) и проверить лимит использований */
 export async function findRedeemable(code: string): Promise<PromoCode | null> {
   const { data, error } = await getSupabase()
     .from('promo_codes')
     .select(COLS)
-    .eq('code', code)
+    .ilike('code', code)   // регистронезависимое сравнение
     .eq('is_active', true)
     .maybeSingle();
   if (error) throw error;

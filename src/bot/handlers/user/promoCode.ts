@@ -18,6 +18,8 @@ promoCodeHandler.on('message:text', async (ctx, next) => {
   // Только одно слово без пробелов; команды и кнопки меню уже обработаны до этого
   if (!text || /\s/.test(text) || text.startsWith('/')) return next();
 
+  console.log(`[promo] user=${ctx.from.id} word="${text}"`);
+
   let code;
   try {
     code = await promoCodesRepo.findRedeemable(text);
@@ -25,6 +27,8 @@ promoCodeHandler.on('message:text', async (ctx, next) => {
     console.error('[promo] findRedeemable error:', err);
     return next();
   }
+
+  console.log(`[promo] found code:`, code ? `id=${code.id} pts=${code.points}` : 'null');
 
   // Не промо-ключ — пропускаем дальше по цепочке
   if (!code) return next();

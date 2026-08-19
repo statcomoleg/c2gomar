@@ -27,33 +27,38 @@ export async function findRedeemable(code: string): Promise<PromoCode | null> {
   return data as PromoCode;
 }
 
-/** Записать использование. Возвращает false, если пользователь уже использовал этот код */
+/**
+ * Записать использование и увеличить счётчик атомарно.
+ * Возвращает false, если пользователь уже использовал этот код.
+ */
 export async function redeemCode(codeId: number, userId: number): Promise<boolean> {
-  const { error } = await getSupabase()
+  const sb = getSupabase();
+
+  // Записываем использование (UNIQUE(code_id, user_id) даёт ошибку при повторе)
+  const { error: insertError } = await sb
     .from('promo_code_uses')
     .insert({ code_id: codeId, user_id: userId });
-  if (error) {
-    // unique violation → уже использовал
-    if (String(error.code) === '23505') return false;
-    throw error;
-  }
-  await getSupabase().rpc('increment_promo_used', { p_id: codeId });
-  return true;
-}
 
-/** Безопасное увеличение счётчика через update (если rpc не настроено) */
-export async function incrementUsedCount(codeId: number): Promise<void> {
-  const sb = getSupabase();
-  const { data } = await sb
+  if (insertError) {
+    // 23505 = unique_violation → уже использовал
+    if (String(insertError.code) === '23505') return false;
+    throw insertError;
+  }
+
+  // Увеличиваем счётчик через select+update (нет RPC — делаем вручную)
+  const { data: current, error: selError } = await sb
     .from('promo_codes')
     .select('used_count')
     .eq('id', codeId)
     .single();
-  if (!data) return;
-  await sb
-    .from('promo_codes')
-    .update({ used_count: data.used_count + 1 })
-    .eq('id', codeId);
+  if (!selError && current) {
+    await sb
+      .from('promo_codes')
+      .update({ used_count: (current.used_count as number) + 1 })
+      .eq('id', codeId);
+  }
+
+  return true;
 }
 
 export async function listCodes(): Promise<PromoCode[]> {

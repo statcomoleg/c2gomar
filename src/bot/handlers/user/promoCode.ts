@@ -21,19 +21,22 @@ promoCodeHandler.on('message:text', async (ctx, next) => {
   let code;
   try {
     code = await promoCodesRepo.findRedeemable(text);
-  } catch {
+  } catch (err) {
+    console.error('[promo] findRedeemable error:', err);
     return next();
   }
 
+  // Не промо-ключ — пропускаем дальше по цепочке
   if (!code) return next();
 
-  // Пробуем зафиксировать использование
+  // Фиксируем использование
   let ok: boolean;
   try {
     ok = await promoCodesRepo.redeemCode(code.id, ctx.from.id);
-    if (ok) await promoCodesRepo.incrementUsedCount(code.id);
-  } catch {
-    return next();
+  } catch (err) {
+    console.error('[promo] redeemCode error:', err);
+    await ctx.reply('Ошибка при активации ключа. Попробуйте позже.');
+    return;
   }
 
   if (!ok) {

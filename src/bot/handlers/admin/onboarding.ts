@@ -69,8 +69,9 @@ onboardingAdminHandler.command('save_circle', requireAdmin, async (ctx) => {
   await ctx.reply(texts.saveCircleHelpText());
 });
 
-/** Приём правок текста/delay и кружка */
-onboardingAdminHandler.on('message', requireAdmin, async (ctx, next) => {
+/** Приём правок текста/delay и кружка — только для админов; не-админы всегда идут дальше */
+onboardingAdminHandler.on('message', async (ctx, next) => {
+  if (!ctx.isAdmin) return next();
   if (!ctx.from || !ctx.message) {
     await next();
     return;

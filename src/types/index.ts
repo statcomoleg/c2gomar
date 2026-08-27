@@ -13,6 +13,8 @@ export interface User {
   last_points_at: string | null;
   onboarding_step: number;
   created_at: string;
+  ref_code: string | null;
+  marathon_starts_at: string | null;
 }
 
 export interface Admin {
@@ -79,6 +81,7 @@ export interface AppSettings {
   channel_id: number;
   discussion_group_id: number;
   channel_invite_link: string | null;
+  default_ref_url: string;
 }
 
 export interface RankedUser {

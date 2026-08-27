@@ -1,6 +1,6 @@
 import { InputFile, type Api } from 'grammy';
 import path from 'path';
-import { onboardingRepo, usersRepo } from '../db/repositories';
+import { onboardingRepo, usersRepo, refSourcesRepo, settingsRepo } from '../db/repositories';
 import { urlButtonKeyboard } from '../bot/keyboards';
 import type { OnboardingMessage } from '../types';
 import {
@@ -37,6 +37,22 @@ function videoSendOptions(relPath: string | null) {
   };
 }
 
+/** Подставляем {{REF_URL}} и {{MARATHON_DATE}} в текст и button_url */
+async function applyTemplates(
+  text: string,
+  buttonUrl: string | null,
+  refUrl: string,
+  marathonDate: string,
+): Promise<{ text: string; buttonUrl: string | null }> {
+  const replacedText = text
+    .replace(/\{\{REF_URL\}\}/g, refUrl)
+    .replace(/\{\{MARATHON_DATE\}\}/g, marathonDate);
+  const replacedUrl = buttonUrl
+    ? buttonUrl.replace(/\{\{REF_URL\}\}/g, refUrl).replace(/\{\{MARATHON_DATE\}\}/g, marathonDate)
+    : null;
+  return { text: replacedText, buttonUrl: replacedUrl };
+}
+
 /** Не блокируем event loop: планируем шаги через setTimeout */
 export async function startOnboarding(api: Api, userId: number): Promise<void> {
   const messages = await onboardingRepo.listOnboardingMessages();
@@ -65,20 +81,48 @@ async function sendOnboardingStep(
   total: number,
 ): Promise<void> {
   try {
-    // Шаги с only_if_not_joined (с «Есть ли планы…» и далее) не шлём после вступления
-    if (msg.only_if_not_joined) {
-      const user = await usersRepo.findUserById(userId);
-      if (user?.joined_channel_at) {
-        console.log(`[onboarding] skip step=${step} user=${userId} already joined`);
-        await usersRepo.setOnboardingStep(userId, step);
-        // Меню уже отправили при вступлении в канал — дублировать не нужно
-        return;
-      }
+    // Получаем пользователя один раз для всех проверок и шаблонов
+    const user = await usersRepo.findUserById(userId);
+
+    // Шаги с only_if_not_joined не шлём после вступления
+    if (msg.only_if_not_joined && user?.joined_channel_at) {
+      console.log(`[onboarding] skip step=${step} user=${userId} already joined`);
+      await usersRepo.setOnboardingStep(userId, step);
+      return;
     }
 
+    const settings = await settingsRepo.getSettings();
+    const defaultRefUrl = settings?.default_ref_url ?? 'https://content2go.app/refH4kGr6DM';
+    const refUrl = await refSourcesRepo.resolveRefUrl(user?.ref_code, defaultRefUrl);
+    const marathonDate = user?.marathon_starts_at
+      ? (() => {
+          try {
+            const d = new Date(user.marathon_starts_at);
+            return (
+              d.toLocaleString('ru-RU', {
+                timeZone: 'Europe/Moscow',
+                day: 'numeric',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
+              }) + ' (МСК)'
+            );
+          } catch {
+            return 'послезавтра в 10:00 (МСК)';
+          }
+        })()
+      : 'послезавтра в 10:00 (МСК)';
+
+    const { text: resolvedText, buttonUrl: resolvedButtonUrl } = await applyTemplates(
+      msg.text,
+      msg.button_url,
+      refUrl,
+      marathonDate,
+    );
+
     const replyMarkup =
-      msg.button_text && msg.button_url
-        ? urlButtonKeyboard(msg.button_text, msg.button_url)
+      msg.button_text && resolvedButtonUrl
+        ? urlButtonKeyboard(msg.button_text, resolvedButtonUrl)
         : undefined;
 
     const localPaths = parseLocalPaths(msg.local_media_paths);
@@ -87,8 +131,8 @@ async function sendOnboardingStep(
       if (msg.media_file_id) {
         await api.sendVideoNote(userId, msg.media_file_id);
       }
-      if (msg.text) {
-        await api.sendMessage(userId, msg.text, {
+      if (resolvedText) {
+        await api.sendMessage(userId, resolvedText, {
           parse_mode: 'HTML',
           link_preview_options: { is_disabled: true },
           reply_markup: replyMarkup,
@@ -99,10 +143,9 @@ async function sendOnboardingStep(
     } else if (msg.media_type === 'photo') {
       const media = msg.media_file_id || (localPaths[0] ? resolveAsset(localPaths[0]) : null);
       if (media) {
-        // Длинный HTML-текст — отдельным сообщением (лимит caption 1024)
         await api.sendPhoto(userId, media);
       }
-      await api.sendMessage(userId, msg.text, {
+      await api.sendMessage(userId, resolvedText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
@@ -111,7 +154,6 @@ async function sendOnboardingStep(
       const media = msg.media_file_id || (localPaths[0] ? resolveAsset(localPaths[0]) : null);
       if (media) {
         const sent = await api.sendVideo(userId, media, videoSendOptions(localPaths[0] ?? null));
-        // Кешируем file_id после первой загрузки с корректными размерами
         if (!msg.media_file_id && sent.video?.file_id) {
           try {
             await onboardingRepo.setOnboardingMedia(msg.id, 'video', sent.video.file_id);
@@ -120,7 +162,7 @@ async function sendOnboardingStep(
           }
         }
       }
-      await api.sendMessage(userId, msg.text, {
+      await api.sendMessage(userId, resolvedText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
@@ -148,13 +190,13 @@ async function sendOnboardingStep(
       } else if (localPaths.length === 1) {
         await api.sendPhoto(userId, resolveAsset(localPaths[0]));
       }
-      await api.sendMessage(userId, msg.text, {
+      await api.sendMessage(userId, resolvedText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
       });
     } else {
-      await api.sendMessage(userId, msg.text, {
+      await api.sendMessage(userId, resolvedText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,

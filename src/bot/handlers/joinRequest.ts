@@ -1,7 +1,7 @@
 import { Composer, InputFile } from 'grammy';
 import path from 'path';
 import type { BotContext } from '../context';
-import { settingsRepo, usersRepo } from '../../db/repositories';
+import { settingsRepo, usersRepo, refSourcesRepo } from '../../db/repositories';
 import * as texts from '../texts';
 import { userMainKeyboard } from '../keyboards';
 
@@ -9,7 +9,7 @@ const MENU_IMAGE = path.resolve(
   process.cwd(),
   'assets/onboarding/menu_practicum.png',
 );
-const FALLBACK_INVITE = 'https://t.me/+4zgobAW0C-wzYjYy';
+const FALLBACK_INVITE = 'https://t.me/content2go';
 
 export const joinRequestHandler = new Composer<BotContext>();
 
@@ -44,13 +44,27 @@ joinRequestHandler.on('chat_join_request', async (ctx) => {
     });
   }
 
-  await usersRepo.markJoinedChannel(userId);
+  const user = await usersRepo.markJoinedChannel(userId);
+
+  // Инкремент joins у источника трафика
+  if (user.ref_code) {
+    await refSourcesRepo.incrementJoins(user.ref_code).catch(() => {});
+  }
+
+  // Реф-ссылка для кнопок/текста
+  const defaultRefUrl = settings.default_ref_url || 'https://content2go.app/refH4kGr6DM';
+  const refUrl = await refSourcesRepo.resolveRefUrl(user.ref_code, defaultRefUrl);
 
   const invite = settings.channel_invite_link || FALLBACK_INVITE;
 
+  // Дата старта марафона: послезавтра 10:00 МСК
+  const marathonDate = user.marathon_starts_at
+    ? texts.formatMarathonDate(user.marathon_starts_at)
+    : 'послезавтра в 10:00 (МСК)';
+
   try {
     await ctx.api.sendPhoto(userId, new InputFile(MENU_IMAGE));
-    await ctx.api.sendMessage(userId, texts.channelOpenedText(invite), {
+    await ctx.api.sendMessage(userId, texts.channelOpenedText(invite, refUrl, marathonDate), {
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
       reply_markup: userMainKeyboard(),

@@ -42,6 +42,7 @@
         <button data-tab="onboarding">Онбординг</button>
         <button data-tab="ledger">Журнал баллов</button>
         <button data-tab="promo">Промо-ключи</button>
+        <button data-tab="refs">Рефералы</button>
         <button data-tab="settings">Настройки</button>
       </nav>
       <button id="logout" class="ghost sidebar-foot">Выйти</button>
@@ -181,6 +182,36 @@
         <div id="promo-list" class="stack"></div>
       </section>
 
+      <section id="tab-refs" class="tab hidden">
+        <h2>Реферальные источники</h2>
+        <div class="panel" style="margin-bottom:1rem">
+          <p class="muted" style="margin-bottom:.5rem">Ссылка на бота с рефом: <code>https://t.me/ВашБот?start=КОД</code></p>
+          <form id="ref-create-form" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+            <label style="flex:0 0 120px">Код (цифры/слово)
+              <input id="ref-code-input" placeholder="4821" required style="width:100%" />
+            </label>
+            <label style="flex:1 1 160px">Внутреннее название
+              <input id="ref-label-input" placeholder="ВК реклама #1" required style="width:100%" />
+            </label>
+            <label style="flex:2 1 220px">URL Content2Go (для этого источника)
+              <input id="ref-url-input" placeholder="https://content2go.app/refXXXXXX" required style="width:100%" />
+            </label>
+            <button type="submit">Добавить</button>
+          </form>
+        </div>
+        <div class="panel">
+          <div id="ref-stats-summary" class="muted" style="margin-bottom:.75rem"></div>
+          <table id="ref-table" class="data-table">
+            <thead>
+              <tr>
+                <th>Код</th><th>Название</th><th>URL</th><th>Кликов</th><th>Вступили</th><th>Конверсия</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="ref-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section id="tab-settings" class="tab hidden">
         <h2>Настройки марафона</h2>
         <form id="settings-form" class="panel grid-form">
@@ -195,6 +226,9 @@
           </label>
           <label>Invite-ссылка канала
             <input name="channel_invite_link" />
+          </label>
+          <label>Дефолтный URL Content2Go ({{REF_URL}} по умолчанию)
+            <input name="default_ref_url" placeholder="https://content2go.app/refXXXXX" />
           </label>
           <button type="submit">Сохранить</button>
           <p id="settings-msg" class="muted"></p>

@@ -2,7 +2,7 @@ import { getSupabase } from '../client';
 import type { User } from '../../types';
 
 const COLS =
-  'id, username, first_name, joined_channel_at, total_points, last_points_at, onboarding_step, created_at';
+  'id, username, first_name, joined_channel_at, total_points, last_points_at, onboarding_step, created_at, ref_code, marathon_starts_at';
 
 export async function findUserById(id: number): Promise<User | null> {
   const { data, error } = await getSupabase()
@@ -63,14 +63,34 @@ export async function setOnboardingStep(userId: number, step: number): Promise<v
 }
 
 export async function markJoinedChannel(userId: number): Promise<User> {
+  // marathon_starts_at = послезавтра в 10:00 МСК (Europe/Moscow = UTC+3)
+  const now = new Date();
+  const msk = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+  msk.setDate(msk.getDate() + 2);
+  msk.setHours(10, 0, 0, 0);
+  // Обратно в UTC: MSK = UTC+3 → вычитаем 3 часа
+  const marathonStartsAt = new Date(msk.getTime() - 3 * 60 * 60 * 1000).toISOString();
+
   const { data, error } = await getSupabase()
     .from('users')
-    .update({ joined_channel_at: new Date().toISOString() })
+    .update({
+      joined_channel_at: now.toISOString(),
+      marathon_starts_at: marathonStartsAt,
+    })
     .eq('id', userId)
     .select(COLS)
     .single();
   if (error) throw error;
   return data as User;
+}
+
+export async function setRefCode(userId: number, refCode: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('users')
+    .update({ ref_code: refCode })
+    .eq('id', userId)
+    .is('ref_code', null); // только если ещё не установлен (первый реф побеждает)
+  if (error) throw error;
 }
 
 export async function updatePointsCache(

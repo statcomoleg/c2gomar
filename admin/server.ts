@@ -13,7 +13,7 @@ import {
   runBroadcast,
   type BroadcastAudience,
 } from '../src/services/broadcast';
-import { submissionsRepo, tasksRepo, promoCodesRepo } from '../src/db/repositories';
+import { submissionsRepo, tasksRepo, promoCodesRepo, refSourcesRepo } from '../src/db/repositories';
 import * as userTexts from '../src/bot/texts/user';
 
 const PORT = Number(process.env.ADMIN_PORT || 3737);
@@ -501,6 +501,9 @@ app.put('/api/settings', requireAuth, async (req, res) => {
     if (typeof req.body?.channel_invite_link === 'string') {
       patch.channel_invite_link = req.body.channel_invite_link;
     }
+    if (typeof req.body?.default_ref_url === 'string' && req.body.default_ref_url) {
+      patch.default_ref_url = req.body.default_ref_url;
+    }
     const sb = getSupabase();
     const { data, error } = await sb
       .from('app_settings')
@@ -688,6 +691,67 @@ app.delete('/api/promo-codes/:id', requireAuth, async (req, res) => {
   try {
     await promoCodesRepo.deleteCode(Number(req.params.id));
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ── Реф-источники ────────────────────────────────────────────────────────────
+
+app.get('/api/ref-sources', requireAuth, async (_req, res) => {
+  try {
+    const sources = await refSourcesRepo.listRefSources();
+    res.json({ sources });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post('/api/ref-sources', requireAuth, async (req, res) => {
+  try {
+    const code = String(req.body?.code || '').trim();
+    const label = String(req.body?.label || '').trim();
+    const target_url = String(req.body?.target_url || '').trim();
+    if (!code || !label || !target_url) {
+      res.status(400).json({ error: 'code, label и target_url обязательны' });
+      return;
+    }
+    const src = await refSourcesRepo.createRefSource({ code, label, target_url });
+    res.json({ source: src });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.patch('/api/ref-sources/:code', requireAuth, async (req, res) => {
+  try {
+    const code = req.params.code;
+    const patch: Partial<{ label: string; target_url: string }> = {};
+    if (req.body?.label) patch.label = String(req.body.label).trim();
+    if (req.body?.target_url) patch.target_url = String(req.body.target_url).trim();
+    const src = await refSourcesRepo.updateRefSource(code, patch);
+    res.json({ source: src });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.delete('/api/ref-sources/:code', requireAuth, async (req, res) => {
+  try {
+    await refSourcesRepo.deleteRefSource(req.params.code);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// Статистика рефералов: по источникам + топ дней
+app.get('/api/ref-sources/stats', requireAuth, async (_req, res) => {
+  try {
+    const sources = await refSourcesRepo.listRefSources();
+    const totalClicks = sources.reduce((s, r) => s + r.clicks, 0);
+    const totalJoins = sources.reduce((s, r) => s + r.joins, 0);
+    res.json({ sources, totalClicks, totalJoins });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

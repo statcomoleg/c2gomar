@@ -1,6 +1,6 @@
 import { Composer } from 'grammy';
 import type { BotContext } from '../../context';
-import { usersRepo } from '../../../db/repositories';
+import { usersRepo, refSourcesRepo } from '../../../db/repositories';
 import { startOnboarding } from '../../../services/onboarding';
 import * as texts from '../../texts';
 import { removeUserKeyboard, urlButtonKeyboard, userMainKeyboard } from '../../keyboards';
@@ -14,6 +14,10 @@ export const startHandler = new Composer<BotContext>();
 startHandler.command('start', async (ctx) => {
   if (!ctx.from) return;
 
+  // Захватываем реф-код из параметра /start (напр. /start 4821)
+  const rawParam = ctx.match?.trim() ?? '';
+  const refCode = rawParam || null;
+
   const existing = await usersRepo.findUserById(ctx.from.id);
   if (existing) {
     await usersRepo.upsertUserProfile({
@@ -21,6 +25,15 @@ startHandler.command('start', async (ctx) => {
       username: ctx.from.username,
       first_name: ctx.from.first_name,
     });
+
+    // Если пришёл с рефом — пробуем записать (первый реф побеждает)
+    if (refCode) {
+      const src = await refSourcesRepo.findByCode(refCode);
+      if (src) {
+        await usersRepo.setRefCode(ctx.from.id, refCode);
+        await refSourcesRepo.incrementClicks(refCode);
+      }
+    }
 
     if (existing.joined_channel_at) {
       await ctx.reply(texts.welcomeBackText(), {
@@ -44,6 +57,15 @@ startHandler.command('start', async (ctx) => {
     username: ctx.from.username,
     first_name: ctx.from.first_name,
   });
+
+  // Записываем реф-код новому пользователю
+  if (refCode) {
+    const src = await refSourcesRepo.findByCode(refCode);
+    if (src) {
+      await usersRepo.setRefCode(ctx.from.id, refCode);
+      await refSourcesRepo.incrementClicks(refCode);
+    }
+  }
 
   void startOnboarding(ctx.api, ctx.from.id);
 });

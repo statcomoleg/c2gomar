@@ -92,6 +92,7 @@ async function loadTab(tab) {
     if (tab === 'settings') await loadSettings();
     if (tab === 'broadcast') await previewBroadcastCount();
     if (tab === 'promo') await loadPromo();
+    if (tab === 'refs') await loadRefs();
   } catch (err) {
     toast(err.message);
     if (err.message === 'unauthorized') showLogin();
@@ -494,6 +495,7 @@ async function loadSettings() {
   form.channel_id.value = settings.channel_id || '';
   form.discussion_group_id.value = settings.discussion_group_id || '';
   form.channel_invite_link.value = settings.channel_invite_link || '';
+  if (form.default_ref_url) form.default_ref_url.value = settings.default_ref_url || '';
 }
 
 $('#settings-form').addEventListener('submit', async (e) => {
@@ -507,6 +509,7 @@ $('#settings-form').addEventListener('submit', async (e) => {
         channel_id: fd.get('channel_id'),
         discussion_group_id: fd.get('discussion_group_id'),
         channel_invite_link: fd.get('channel_invite_link'),
+        default_ref_url: fd.get('default_ref_url'),
       },
     });
     $('#settings-msg').textContent = 'Сохранено';
@@ -609,6 +612,61 @@ document.addEventListener('click', (e) => {
   if (e.target && e.target.id === 'tasks-filter-btn') {
     tasksHidePending = !tasksHidePending;
     loadTasks().catch(() => {});
+  }
+});
+
+// ── Рефералы ─────────────────────────────────────────────────────────────────
+
+async function loadRefs() {
+  const d = await api('/api/ref-sources/stats');
+  const { sources, totalClicks, totalJoins } = d;
+
+  $('#ref-stats-summary').textContent =
+    `Всего источников: ${sources.length} | Кликов: ${totalClicks} | Вступили: ${totalJoins}`;
+
+  const conv = (s) =>
+    s.clicks > 0 ? `${Math.round((s.joins / s.clicks) * 100)}%` : '—';
+
+  $('#ref-tbody').innerHTML = sources.length
+    ? sources
+        .map(
+          (s) => `<tr>
+          <td><code>${escapeHtml(s.code)}</code></td>
+          <td>${escapeHtml(s.label)}</td>
+          <td><a href="${escapeHtml(s.target_url)}" target="_blank" title="${escapeHtml(s.target_url)}">${escapeHtml(s.target_url.slice(0, 40))}${s.target_url.length > 40 ? '…' : ''}</a></td>
+          <td>${s.clicks}</td>
+          <td>${s.joins}</td>
+          <td>${conv(s)}</td>
+          <td>
+            <button class="btn-sm danger" onclick="deleteRef('${escapeHtml(s.code)}')">Удалить</button>
+          </td>
+        </tr>`,
+        )
+        .join('')
+    : '<tr><td colspan="7" class="muted">Нет источников</td></tr>';
+}
+
+window.deleteRef = async function (code) {
+  if (!confirm(`Удалить источник «${code}»? Статистика будет потеряна.`)) return;
+  try {
+    await api(`/api/ref-sources/${encodeURIComponent(code)}`, { method: 'DELETE' });
+    await loadRefs();
+  } catch (err) {
+    toast(err.message);
+  }
+};
+
+$('#ref-create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = $('#ref-code-input').value.trim();
+  const label = $('#ref-label-input').value.trim();
+  const target_url = $('#ref-url-input').value.trim();
+  try {
+    await api('/api/ref-sources', { method: 'POST', body: { code, label, target_url } });
+    e.target.reset();
+    await loadRefs();
+  } catch (err) {
+    toast(err.message);
   }
 });
 

@@ -6,3 +6,4 @@ export * as tasksRepo from './tasks';
 export * as submissionsRepo from './submissions';
 export * as pointsLedgerRepo from './pointsLedger';
 export * as promoCodesRepo from './promoCodes';
+export * as refSourcesRepo from './refSources';

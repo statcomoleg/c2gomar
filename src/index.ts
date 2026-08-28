@@ -21,6 +21,7 @@ import { addTaskConversation } from './bot/conversations/addTask';
 import { broadcastConversation } from './bot/conversations/broadcast';
 import * as texts from './bot/texts';
 import { requireAdmin } from './bot/middleware/isAdmin';
+import { startScheduler } from './services/marathonScheduler';
 
 async function main() {
   const env = loadEnv();
@@ -85,6 +86,7 @@ async function main() {
 
   console.log('Бот запускается (long polling)…');
   run(bot);
+  startScheduler(bot.api);
 }
 
 main().catch((err) => {

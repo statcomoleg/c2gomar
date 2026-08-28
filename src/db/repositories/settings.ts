@@ -2,7 +2,7 @@ import { getSupabase } from '../client';
 import type { AppSettings } from '../../types';
 
 const COLS =
-  'id, marathon_start_at, channel_id, discussion_group_id, channel_invite_link';
+  'id, marathon_start_at, channel_id, discussion_group_id, channel_invite_link, default_ref_url';
 
 export async function getSettings(): Promise<AppSettings | null> {
   const { data, error } = await getSupabase()

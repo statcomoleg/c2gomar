@@ -6,6 +6,7 @@
 import { InputFile, type Api } from 'grammy';
 import path from 'path';
 import { usersRepo, settingsRepo, refSourcesRepo } from '../db/repositories';
+import { enqueueUserMessages } from './marathonScheduler';
 import { userMainKeyboard } from '../bot/keyboards';
 import * as texts from '../bot/texts';
 
@@ -48,6 +49,13 @@ export async function processJoin(
   // Инкремент joins у источника трафика
   if (user.ref_code) {
     await refSourcesRepo.incrementJoins(user.ref_code).catch(() => {});
+  }
+
+  // Ставим в очередь все марафонные письма
+  if (user.joined_channel_at && user.marathon_starts_at) {
+    await enqueueUserMessages(userId, user.joined_channel_at, user.marathon_starts_at).catch(
+      (err) => console.error('[joinFlow] enqueueUserMessages error', err),
+    );
   }
 
   const settings = await settingsRepo.getSettings();

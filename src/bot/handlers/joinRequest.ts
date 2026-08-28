@@ -1,18 +1,11 @@
-import { Composer, InputFile } from 'grammy';
-import path from 'path';
+import { Composer } from 'grammy';
 import type { BotContext } from '../context';
-import { settingsRepo, usersRepo, refSourcesRepo } from '../../db/repositories';
-import * as texts from '../texts';
-import { userMainKeyboard } from '../keyboards';
-
-const MENU_IMAGE = path.resolve(
-  process.cwd(),
-  'assets/onboarding/menu_practicum.png',
-);
-const FALLBACK_INVITE = 'https://t.me/content2go';
+import { settingsRepo } from '../../db/repositories';
+import { processJoin } from '../../services/joinFlow';
 
 export const joinRequestHandler = new Composer<BotContext>();
 
+// Для приватных каналов с заявками (на случай если канал будет закрытым)
 joinRequestHandler.on('chat_join_request', async (ctx) => {
   const settings = await settingsRepo.getSettings();
   if (!settings) return;
@@ -29,47 +22,8 @@ joinRequestHandler.on('chat_join_request', async (ctx) => {
     return;
   }
 
-  const existing = await usersRepo.findUserById(userId);
-  if (!existing) {
-    await usersRepo.createUser({
-      id: userId,
-      username: ctx.chatJoinRequest.from.username,
-      first_name: ctx.chatJoinRequest.from.first_name,
-    });
-  } else {
-    await usersRepo.upsertUserProfile({
-      id: userId,
-      username: ctx.chatJoinRequest.from.username,
-      first_name: ctx.chatJoinRequest.from.first_name,
-    });
-  }
-
-  const user = await usersRepo.markJoinedChannel(userId);
-
-  // Инкремент joins у источника трафика
-  if (user.ref_code) {
-    await refSourcesRepo.incrementJoins(user.ref_code).catch(() => {});
-  }
-
-  // Реф-ссылка для кнопок/текста
-  const defaultRefUrl = settings.default_ref_url || 'https://content2go.app/refH4kGr6DM';
-  const refUrl = await refSourcesRepo.resolveRefUrl(user.ref_code, defaultRefUrl);
-
-  const invite = settings.channel_invite_link || FALLBACK_INVITE;
-
-  // Дата старта марафона: послезавтра 10:00 МСК
-  const marathonDate = user.marathon_starts_at
-    ? texts.formatMarathonDate(user.marathon_starts_at)
-    : 'послезавтра в 10:00 (МСК)';
-
-  try {
-    await ctx.api.sendPhoto(userId, new InputFile(MENU_IMAGE));
-    await ctx.api.sendMessage(userId, texts.channelOpenedText(invite, refUrl, marathonDate), {
-      parse_mode: 'HTML',
-      link_preview_options: { is_disabled: true },
-      reply_markup: userMainKeyboard(),
-    });
-  } catch (err) {
-    console.error('[joinRequest] notify user failed', err);
-  }
+  await processJoin(ctx.api, userId, {
+    username: ctx.chatJoinRequest.from.username,
+    first_name: ctx.chatJoinRequest.from.first_name,
+  });
 });

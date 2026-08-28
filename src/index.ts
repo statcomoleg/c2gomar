@@ -13,6 +13,7 @@ import { joinRequestHandler } from './bot/handlers/joinRequest';
 import { discussionCommentHandler } from './bot/handlers/discussionComment';
 import { adminMenuHandler, reviewHandler } from './bot/handlers/admin/menu';
 import { promoCodeHandler } from './bot/handlers/user/promoCode';
+import { joinChannelHandler } from './bot/handlers/user/joinChannel';
 import { onboardingAdminHandler } from './bot/handlers/admin/onboarding';
 import { awardConversation } from './bot/conversations/award';
 import { addTaskConversation } from './bot/conversations/addTask';
@@ -61,6 +62,8 @@ async function main() {
   bot.use(startHandler);
   bot.use(myTasksHandler);
   bot.use(rankingHandler);
+
+  bot.use(joinChannelHandler);   // callback «Стать участником» — раньше других callback
 
   bot.use(adminMenuHandler);
   bot.use(reviewHandler);

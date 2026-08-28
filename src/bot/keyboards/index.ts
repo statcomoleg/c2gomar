@@ -64,6 +64,17 @@ export function urlButtonKeyboard(text: string, url: string): InlineKeyboard {
   return new InlineKeyboard().url(text, url);
 }
 
+/**
+ * Для онбординг-шагов с only_if_not_joined:
+ * Ряд 1 — ссылка на канал, Ряд 2 — callback «Стать участником»
+ */
+export function joinWithChannelKeyboard(channelUrl: string): InlineKeyboard {
+  return new InlineKeyboard()
+    .url('📢 Подписаться на канал', channelUrl)
+    .row()
+    .text('✅ Я подписался — стать участником', 'join_channel');
+}
+
 export function onboardingStepKeyboard(messages: OnboardingMessage[]): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (const m of messages) {

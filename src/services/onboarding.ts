@@ -1,7 +1,7 @@
 import { InputFile, type Api } from 'grammy';
 import path from 'path';
 import { onboardingRepo, usersRepo, refSourcesRepo, settingsRepo } from '../db/repositories';
-import { urlButtonKeyboard } from '../bot/keyboards';
+import { urlButtonKeyboard, joinWithChannelKeyboard } from '../bot/keyboards';
 import type { OnboardingMessage } from '../types';
 import {
   hasJoinedChannel,
@@ -120,10 +120,22 @@ async function sendOnboardingStep(
       marathonDate,
     );
 
-    const replyMarkup =
-      msg.button_text && resolvedButtonUrl
-        ? urlButtonKeyboard(msg.button_text, resolvedButtonUrl)
-        : undefined;
+    // Для шагов «только до вступления»: добавляем инструкцию и двойную кнопку
+    const isPreJoin = msg.only_if_not_joined;
+    const channelUrl = resolvedButtonUrl ?? 'https://t.me/content2go';
+
+    let replyMarkup;
+    if (isPreJoin) {
+      replyMarkup = joinWithChannelKeyboard(channelUrl);
+    } else if (msg.button_text && resolvedButtonUrl) {
+      replyMarkup = urlButtonKeyboard(msg.button_text, resolvedButtonUrl);
+    }
+
+    // Инструкция о вступлении — дописываем к тексту шагов до вступления
+    const joinInstruction = isPreJoin
+      ? `\n\n📌 <b>Чтобы стать участником:</b> подпишитесь на канал @content2go, затем нажмите кнопку «Я подписался» ниже.`
+      : '';
+    const finalText = resolvedText + joinInstruction;
 
     const localPaths = parseLocalPaths(msg.local_media_paths);
 
@@ -131,8 +143,8 @@ async function sendOnboardingStep(
       if (msg.media_file_id) {
         await api.sendVideoNote(userId, msg.media_file_id);
       }
-      if (resolvedText) {
-        await api.sendMessage(userId, resolvedText, {
+      if (finalText) {
+        await api.sendMessage(userId, finalText, {
           parse_mode: 'HTML',
           link_preview_options: { is_disabled: true },
           reply_markup: replyMarkup,
@@ -145,7 +157,7 @@ async function sendOnboardingStep(
       if (media) {
         await api.sendPhoto(userId, media);
       }
-      await api.sendMessage(userId, resolvedText, {
+      await api.sendMessage(userId, finalText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
@@ -162,7 +174,7 @@ async function sendOnboardingStep(
           }
         }
       }
-      await api.sendMessage(userId, resolvedText, {
+      await api.sendMessage(userId, finalText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
@@ -190,13 +202,13 @@ async function sendOnboardingStep(
       } else if (localPaths.length === 1) {
         await api.sendPhoto(userId, resolveAsset(localPaths[0]));
       }
-      await api.sendMessage(userId, resolvedText, {
+      await api.sendMessage(userId, finalText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,
       });
     } else {
-      await api.sendMessage(userId, resolvedText, {
+      await api.sendMessage(userId, finalText, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
         reply_markup: replyMarkup,

@@ -63,13 +63,17 @@ export async function setOnboardingStep(userId: number, step: number): Promise<v
 }
 
 export async function markJoinedChannel(userId: number): Promise<User> {
-  // marathon_starts_at = послезавтра в 10:00 МСК (Europe/Moscow = UTC+3)
+  // marathon_starts_at = послезавтра в 10:00 МСК (UTC+3 = UTC+07:00 по offset)
   const now = new Date();
-  const msk = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
-  msk.setDate(msk.getDate() + 2);
-  msk.setHours(10, 0, 0, 0);
-  // Обратно в UTC: MSK = UTC+3 → вычитаем 3 часа
-  const marathonStartsAt = new Date(msk.getTime() - 3 * 60 * 60 * 1000).toISOString();
+  // Получаем компоненты даты «послезавтра» в московском времени
+  const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const mskStr = dayAfterTomorrow.toLocaleString('en-US', { timeZone: 'Europe/Moscow' });
+  const mskDate = new Date(mskStr); // локальные год/месяц/день в MSK
+  const year = mskDate.getFullYear();
+  const month = mskDate.getMonth();
+  const day = mskDate.getDate();
+  // 10:00 МСК = 07:00 UTC (MSK = UTC+3, поэтому UTC = 10 - 3 = 7)
+  const marathonStartsAt = new Date(Date.UTC(year, month, day, 7, 0, 0)).toISOString();
 
   const { data, error } = await getSupabase()
     .from('users')

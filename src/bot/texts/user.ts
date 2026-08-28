@@ -8,7 +8,7 @@ export function welcomeBackText(): string {
 export function welcomeBackNeedChannelText(): string {
   return (
     'Снова привет!\n\n' +
-    'Меню марафона откроется после вступления в закрытый канал практикума.'
+    'Меню марафона откроется после вступления в канал практикума.'
   );
 }
 
@@ -19,7 +19,7 @@ export function marathonMenuText(): string {
 export function needChannelText(): string {
   return (
     'Функции марафона пока недоступны.\n\n' +
-    'Сначала вступите в закрытый канал практикума — после одобрения заявки откроются «Мои задания» и «Рейтинг».'
+    'Сначала вступите в канал практикума — откроются «Мои задания» и «Рейтинг».'
   );
 }
 

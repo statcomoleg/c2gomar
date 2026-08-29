@@ -42,13 +42,9 @@ startHandler.command('start', async (ctx) => {
       return;
     }
 
-    const link = await getChannelInviteLink();
-    await ctx.reply(texts.welcomeBackNeedChannelText(), {
-      reply_markup: removeUserKeyboard(),
-    });
-    await ctx.reply(texts.joinChannelHintText(), {
-      reply_markup: urlButtonKeyboard('Присоединиться к практикуму', link),
-    });
+    // Не вступил в канал — заново запускаем прогрев с первого письма
+    await usersRepo.setOnboardingStep(ctx.from.id, 0);
+    void startOnboarding(ctx.api, ctx.from.id);
     return;
   }
 

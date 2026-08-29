@@ -44,6 +44,29 @@ function buildTestNote(msg: MarathonMessage, index: number, total: number): stri
 
 export const testFunnelHandler = new Composer<BotContext>();
 
+// Сохраняем file_id видео-кружка в БД по команде /savevnote
+testFunnelHandler.command('savevnote', requireAdmin, async (ctx) => {
+  await ctx.reply(
+    '📹 Перешлите или отправьте видео-кружок следующим сообщением.\n' +
+    'Я сохраню его в запись письма «вечер накануне марафона».',
+  );
+});
+
+// Ловим video_note от админа после команды savevnote
+testFunnelHandler.on('message:video_note', requireAdmin, async (ctx) => {
+  const fileId = ctx.message.video_note.file_id;
+  try {
+    await marathonMessagesRepo.setMediaFileIdByStepOrder(40, fileId);
+    await ctx.reply(
+      `✅ file_id сохранён для письма step_order=40 (вечер накануне марафона).\n\n` +
+      `<code>${fileId}</code>`,
+      { parse_mode: 'HTML' },
+    );
+  } catch (err) {
+    await ctx.reply(`❌ Ошибка: ${String(err)}`);
+  }
+});
+
 testFunnelHandler.command('testfunnel', requireAdmin, async (ctx) => {
   const userId = ctx.from!.id;
   const messages = await marathonMessagesRepo.listMessages();

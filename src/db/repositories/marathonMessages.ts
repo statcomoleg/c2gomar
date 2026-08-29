@@ -54,6 +54,14 @@ export async function setMediaFileId(id: number, fileId: string): Promise<void> 
   if (error) throw error;
 }
 
+export async function setMediaFileIdByStepOrder(stepOrder: number, fileId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('marathon_messages')
+    .update({ media_file_id: fileId })
+    .eq('step_order', stepOrder);
+  if (error) throw error;
+}
+
 /**
  * Создаёт записи в user_marathon_queue для нового участника.
  * joinedAt — время вступления в канал (UTC ISO string).

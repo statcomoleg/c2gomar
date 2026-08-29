@@ -16,6 +16,7 @@ import { promoCodeHandler } from './bot/handlers/user/promoCode';
 import { joinChannelHandler } from './bot/handlers/user/joinChannel';
 import { onboardingAdminHandler } from './bot/handlers/admin/onboarding';
 import { resetUserHandler } from './bot/handlers/admin/resetUser';
+import { testFunnelHandler } from './bot/handlers/admin/testFunnel';
 import { awardConversation } from './bot/conversations/award';
 import { addTaskConversation } from './bot/conversations/addTask';
 import { broadcastConversation } from './bot/conversations/broadcast';
@@ -66,6 +67,7 @@ async function main() {
   bot.use(rankingHandler);
 
   bot.use(resetUserHandler);     // секретный сброс — только для админов
+  bot.use(testFunnelHandler);    // /testfunnel — быстрый прогон воронки
   bot.use(joinChannelHandler);   // callback «Стать участником» — раньше других callback
 
   bot.use(adminMenuHandler);

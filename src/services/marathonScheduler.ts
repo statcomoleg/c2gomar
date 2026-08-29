@@ -1,12 +1,12 @@
 import type { Api } from 'grammy';
 import { marathonMessagesRepo, refSourcesRepo, settingsRepo } from '../db/repositories';
-import type { PendingEntry } from '../db/repositories/marathonMessages';
+import type { MarathonMessage, PendingEntry } from '../db/repositories/marathonMessages';
 
 const POLL_INTERVAL_MS = 60_000; // раз в минуту
 
 // ── Подстановка шаблонов ────────────────────────────────────────────────────
 
-async function applyTemplates(
+export async function applyMarathonTemplates(
   text: string,
   buttonUrl: string | null,
   userPoints: number,
@@ -43,22 +43,30 @@ async function applyTemplates(
   return { text: apply(text), buttonUrl: buttonUrl ? apply(buttonUrl) : null };
 }
 
-// ── Отправка одного сообщения ────────────────────────────────────────────────
+// ── Отправка одного сообщения (шаблон) ──────────────────────────────────────
 
-async function sendEntry(api: Api, entry: PendingEntry, defaultRefUrl: string): Promise<void> {
-  const { message: msg, user_id, user_total_points, user_ref_code, user_marathon_starts_at } =
-    entry;
+export async function sendMarathonMessage(
+  api: Api,
+  msg: MarathonMessage,
+  userId: number,
+  userPoints: number,
+  refCode: string | null,
+  marathonStartsAt: string | null,
+  defaultRefUrl: string,
+  /** Если true — не проверяем условие min/max баллов (тест-режим) */
+  ignorePointsCondition = false,
+): Promise<void> {
+  if (!ignorePointsCondition) {
+    if (msg.min_points !== null && userPoints < msg.min_points) return;
+    if (msg.max_points !== null && userPoints > msg.max_points) return;
+  }
 
-  // Проверяем условия по баллам
-  if (msg.min_points !== null && user_total_points < msg.min_points) return;
-  if (msg.max_points !== null && user_total_points > msg.max_points) return;
-
-  const { text, buttonUrl } = await applyTemplates(
+  const { text, buttonUrl } = await applyMarathonTemplates(
     msg.text,
     msg.button_url,
-    user_total_points,
-    user_ref_code,
-    user_marathon_starts_at,
+    userPoints,
+    refCode,
+    marathonStartsAt,
     defaultRefUrl,
   );
 
@@ -67,23 +75,33 @@ async function sendEntry(api: Api, entry: PendingEntry, defaultRefUrl: string): 
       ? { inline_keyboard: [[{ text: msg.button_text, url: buttonUrl }]] }
       : undefined;
 
-  try {
-    if (msg.media_type === 'video_note' && msg.media_file_id) {
-      await api.sendVideoNote(user_id, msg.media_file_id);
-    } else if (msg.media_type === 'photo' && msg.media_file_id) {
-      await api.sendPhoto(user_id, msg.media_file_id);
-    }
+  if (msg.media_type === 'video_note' && msg.media_file_id) {
+    await api.sendVideoNote(userId, msg.media_file_id);
+  } else if (msg.media_type === 'photo' && msg.media_file_id) {
+    await api.sendPhoto(userId, msg.media_file_id);
+  }
 
-    if (text) {
-      await api.sendMessage(user_id, text, {
-        parse_mode: 'HTML',
-        link_preview_options: { is_disabled: true },
-        reply_markup: replyMarkup,
-      });
-    }
+  if (text) {
+    await api.sendMessage(userId, text, {
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+      reply_markup: replyMarkup,
+    });
+  }
+}
+
+// ── Отправка записи из очереди ───────────────────────────────────────────────
+
+async function sendEntry(api: Api, entry: PendingEntry, defaultRefUrl: string): Promise<void> {
+  const { message: msg, user_id, user_total_points, user_ref_code, user_marathon_starts_at } =
+    entry;
+
+  try {
+    await sendMarathonMessage(
+      api, msg, user_id, user_total_points, user_ref_code, user_marathon_starts_at, defaultRefUrl,
+    );
   } catch (err) {
     const code = (err as { error_code?: number }).error_code;
-    // 403 = пользователь заблокировал бота — помечаем как отправлено, чтобы не повторять
     if (code === 403) {
       console.warn(`[scheduler] user=${user_id} blocked bot, skipping msg=${msg.id}`);
       return;

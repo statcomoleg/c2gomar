@@ -47,6 +47,8 @@ export interface Submission {
   reviewed_at: string | null;
   admin_feedback: string | null;
   submitted_at: string;
+  media_type: string | null;
+  media_file_id: string | null;
 }
 
 export interface PointsLedgerEntry {

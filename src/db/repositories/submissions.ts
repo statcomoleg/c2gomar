@@ -2,13 +2,15 @@ import { getSupabase } from '../client';
 import type { Submission, SubmissionStatus } from '../../types';
 
 const COLS =
-  'id, task_id, user_id, comment_message_id, comment_text, status, points_awarded, reviewed_by, reviewed_at, admin_feedback, submitted_at';
+  'id, task_id, user_id, comment_message_id, comment_text, status, points_awarded, reviewed_by, reviewed_at, admin_feedback, submitted_at, media_type, media_file_id';
 
 export async function createSubmission(input: {
   task_id: number;
   user_id: number;
   comment_message_id: number;
   comment_text: string;
+  media_type?: string | null;
+  media_file_id?: string | null;
 }): Promise<Submission> {
   const { data, error } = await getSupabase()
     .from('submissions')
@@ -17,6 +19,8 @@ export async function createSubmission(input: {
       user_id: input.user_id,
       comment_message_id: input.comment_message_id,
       comment_text: input.comment_text,
+      media_type: input.media_type ?? null,
+      media_file_id: input.media_file_id ?? null,
       status: 'pending',
     })
     .select(COLS)

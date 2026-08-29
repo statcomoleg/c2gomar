@@ -9,6 +9,7 @@ import {
   matchTaskWithFallback,
   tryBindDiscussionForward,
 } from '../../services/taskMatching';
+import { extractSubmissionMedia } from '../../services/submissionMedia';
 import * as texts from '../texts';
 
 export const discussionCommentHandler = new Composer<BotContext>();
@@ -95,11 +96,15 @@ discussionCommentHandler.on('message', async (ctx, next) => {
     ctx.message.caption ||
     '[медиа без текста]';
 
+  const media = extractSubmissionMedia(ctx.message);
+
   await submissionsRepo.createSubmission({
     task_id: task.id,
     user_id: ctx.from.id,
     comment_message_id: ctx.message.message_id,
     comment_text: commentText,
+    media_type: media?.media_type ?? null,
+    media_file_id: media?.media_file_id ?? null,
   });
 
   try {

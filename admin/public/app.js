@@ -172,6 +172,7 @@ async function loadReview() {
           <a class="mono muted" href="${task.channel_post_link || '#'}" target="_blank" rel="noopener">пост</a>
         </div>
         <div class="comment">${escapeHtml(s.comment_text || '')}</div>
+        ${renderSubmissionMedia(s)}
         ${actions}
       </article>`;
     })
@@ -218,6 +219,18 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function renderSubmissionMedia(s) {
+  if (!s.media_file_id) return '';
+  const src = `/api/media?file_id=${encodeURIComponent(s.media_file_id)}`;
+  if (s.media_type === 'photo') {
+    return `<div class="submission-media"><img src="${src}" alt="Скриншот отчёта" loading="lazy" /></div>`;
+  }
+  if (s.media_type === 'video') {
+    return `<div class="submission-media"><video src="${src}" controls preload="metadata"></video></div>`;
+  }
+  return `<div class="submission-media"><a href="${src}" target="_blank" rel="noopener">Открыть вложение</a></div>`;
 }
 
 let usersTimer;

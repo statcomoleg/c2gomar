@@ -279,6 +279,7 @@ app.get('/api/submissions', requireAuth, async (req, res) => {
       .from('submissions')
       .select(
         `id, task_id, user_id, comment_text, status, points_awarded, submitted_at, reviewed_at, admin_feedback,
+         media_type, media_file_id,
          tasks ( id, label, description, type, channel_post_link ),
          users ( id, username, first_name, total_points )`,
       )
@@ -752,6 +753,46 @@ app.get('/api/ref-sources/stats', requireAuth, async (_req, res) => {
     const totalClicks = sources.reduce((s, r) => s + r.clicks, 0);
     const totalJoins = sources.reduce((s, r) => s + r.joins, 0);
     res.json({ sources, totalClicks, totalJoins });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+/** Прокси медиа из Telegram по file_id (для карточек проверки) */
+app.get('/api/media', requireAuth, async (req, res) => {
+  try {
+    const fileId = String(req.query.file_id || '').trim();
+    if (!fileId) {
+      res.status(400).json({ error: 'file_id обязателен' });
+      return;
+    }
+
+    const token = process.env.BOT_TOKEN!;
+    const fileRes = await fetch(
+      `https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`,
+    );
+    const fileJson = (await fileRes.json()) as {
+      ok: boolean;
+      result?: { file_path: string };
+      description?: string;
+    };
+    if (!fileJson.ok || !fileJson.result?.file_path) {
+      res.status(404).json({ error: fileJson.description || 'Файл не найден' });
+      return;
+    }
+
+    const fileUrl = `https://api.telegram.org/file/bot${token}/${fileJson.result.file_path}`;
+    const mediaRes = await fetch(fileUrl);
+    if (!mediaRes.ok) {
+      res.status(502).json({ error: 'Не удалось скачать файл из Telegram' });
+      return;
+    }
+
+    const contentType = mediaRes.headers.get('content-type') || 'application/octet-stream';
+    const buffer = Buffer.from(await mediaRes.arrayBuffer());
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

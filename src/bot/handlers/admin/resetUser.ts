@@ -26,6 +26,7 @@ resetUserHandler.on('message:text', async (ctx, next) => {
   try {
     // Удаляем в порядке зависимостей (FK cascade должен сам, но на всякий случай явно)
     await sb.from('promo_code_uses').delete().eq('user_id', userId);
+    await sb.from('user_marathon_queue').delete().eq('user_id', userId);
     await sb.from('points_ledger').delete().eq('user_id', userId);
     await sb.from('submissions').delete().eq('user_id', userId);
     await sb.from('users').delete().eq('id', userId);

@@ -47,35 +47,45 @@ discussionCommentHandler.on('message', async (ctx, next) => {
     return;
   }
 
-  const now = new Date();
-  const startAt = new Date(settings.marathon_start_at);
-
-  if (task.type === 'pre' && now > startAt) {
-    try {
-      await ctx.api.sendMessage(ctx.from.id, texts.preTasksClosedText());
-    } catch (err) {
-      console.error(err);
-    }
-    return;
-  }
-
-  if (task.type === 'main' && now < startAt) {
-    try {
-      await ctx.api.sendMessage(
-        ctx.from.id,
-        texts.mainTasksNotOpenText(settings.marathon_start_at),
-      );
-    } catch (err) {
-      console.error(err);
-    }
-    return;
-  }
-
   await usersRepo.upsertUserProfile({
     id: ctx.from.id,
     username: ctx.from.username,
     first_name: ctx.from.first_name,
   });
+
+  const user = await usersRepo.findUserById(ctx.from.id);
+  const marathonStart = user?.marathon_starts_at
+    ? new Date(user.marathon_starts_at)
+    : null;
+  const now = new Date();
+
+  // Автомарафон: окно приёма относительно персонального старта участника
+  if (task.type === 'pre') {
+    if (marathonStart && now >= marathonStart) {
+      try {
+        await ctx.api.sendMessage(ctx.from.id, texts.preTasksClosedText());
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+  }
+
+  if (task.type === 'main') {
+    if (!marathonStart || now < marathonStart) {
+      try {
+        await ctx.api.sendMessage(
+          ctx.from.id,
+          texts.mainTasksNotOpenText(
+            marathonStart?.toISOString() ?? settings.marathon_start_at,
+          ),
+        );
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+  }
 
   const active = await submissionsRepo.findActiveForUserTask(ctx.from.id, task.id);
   if (active?.status === 'approved') {

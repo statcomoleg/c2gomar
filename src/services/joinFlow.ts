@@ -67,15 +67,23 @@ export async function processJoin(
     ? texts.formatMarathonDate(user.marathon_starts_at)
     : 'послезавтра в 10:00 (МСК)';
 
+  // Отправляем фото-превью (не критично — если не дошло, меню всё равно покажем)
   try {
     await api.sendPhoto(userId, new InputFile(MENU_IMAGE));
+  } catch (err) {
+    console.error('[joinFlow] sendPhoto failed (non-critical):', err);
+  }
+
+  // Меню марафона — критично, без него пользователь не видит ничего
+  try {
     await api.sendMessage(userId, texts.channelOpenedText(invite, refUrl, marathonDate), {
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
       reply_markup: userMainKeyboard(),
     });
   } catch (err) {
-    console.error('[joinFlow] notify user failed', err);
+    console.error('[joinFlow] sendMessage failed:', err);
+    throw err; // пробрасываем — joinChannel.ts покажет fallback пользователю
   }
 
   return { alreadyJoined: false };

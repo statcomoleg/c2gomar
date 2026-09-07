@@ -54,6 +54,19 @@ async function main() {
   bot.use(createConversation(addTaskConversation, 'addTask'));
   bot.use(createConversation(broadcastConversation, 'broadcast'));
 
+  // Глобальный логгер апдейтов (временно для диагностики)
+  bot.use(async (ctx, next) => {
+    const type = Object.keys(ctx.update).find((k) => k !== 'update_id') ?? 'unknown';
+    if (ctx.update.callback_query) {
+      console.log(
+        `[UPDATE] callback_query data="${ctx.update.callback_query.data}" from=${ctx.update.callback_query.from.id}`,
+      );
+    } else {
+      console.log(`[UPDATE] ${type} from=${ctx.from?.id ?? 'anon'}`);
+    }
+    await next();
+  });
+
   // Ошибки — не роняем процесс
   bot.catch((err) => {
     console.error('[bot.catch]', err.error);

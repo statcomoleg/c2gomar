@@ -3,10 +3,10 @@ import type { BotContext } from '../../context';
 import { usersRepo, refSourcesRepo } from '../../../db/repositories';
 import { startOnboarding } from '../../../services/onboarding';
 import * as texts from '../../texts';
-import { removeUserKeyboard, urlButtonKeyboard, userMainKeyboard } from '../../keyboards';
+import { removeUserKeyboard, userMainKeyboard } from '../../keyboards';
 import {
-  getChannelInviteLink,
   hasJoinedChannel,
+  replyNeedChannel,
 } from '../../middleware/requireJoined';
 
 export const startHandler = new Composer<BotContext>();
@@ -69,13 +69,7 @@ startHandler.command('start', async (ctx) => {
 startHandler.command('menu', async (ctx) => {
   if (!ctx.from) return;
   if (!(await hasJoinedChannel(ctx.from.id))) {
-    const link = await getChannelInviteLink();
-    await ctx.reply(texts.needChannelText(), {
-      reply_markup: removeUserKeyboard(),
-    });
-    await ctx.reply(texts.joinChannelHintText(), {
-      reply_markup: urlButtonKeyboard('Присоединиться к практикуму', link),
-    });
+    await replyNeedChannel(ctx);
     return;
   }
   await ctx.reply(texts.marathonMenuText(), {

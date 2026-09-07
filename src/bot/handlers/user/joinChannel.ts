@@ -21,11 +21,17 @@ joinChannelHandler.callbackQuery('join_channel', async (ctx) => {
   let isMember = false;
   try {
     const member = await ctx.api.getChatMember(settings.channel_id, userId);
-    isMember = ['member', 'administrator', 'creator'].includes(member.status);
+    isMember = ['member', 'administrator', 'creator', 'restricted'].includes(member.status);
   } catch (err) {
-    console.error('[joinChannel] getChatMember error', err);
+    const code = (err as { error_code?: number }).error_code;
+    // 400 = user not found in chat (= left), 403 = forbidden
+    if (code !== 400 && code !== 403) {
+      // Неожиданная ошибка — пробуем всё равно принять (лучше, чем бесконечная петля)
+      console.error('[joinChannel] getChatMember error', err);
+    }
+    // Не можем проверить — сообщаем пользователю и даём попробовать ещё раз
     await ctx.reply(
-      '⚠️ Не смог проверить подписку. Убедитесь, что вы подписаны на канал, и попробуйте снова.',
+      '⚠️ Не смог проверить подписку. Убедитесь, что вы подписаны на канал @content2go, и попробуйте снова.',
     );
     return;
   }

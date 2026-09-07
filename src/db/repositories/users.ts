@@ -89,11 +89,14 @@ export async function markJoinedChannel(userId: number): Promise<User> {
 }
 
 export async function setRefCode(userId: number, refCode: string): Promise<void> {
+  // До вступления в канал — обновляем ref_code при каждом /start CODE
+  // (last-click attribution: последний переход по реф-ссылке до вступления).
+  // После вступления ref_code заморожен.
   const { error } = await getSupabase()
     .from('users')
     .update({ ref_code: refCode })
     .eq('id', userId)
-    .is('ref_code', null); // только если ещё не установлен (первый реф побеждает)
+    .is('joined_channel_at', null);
   if (error) throw error;
 }
 

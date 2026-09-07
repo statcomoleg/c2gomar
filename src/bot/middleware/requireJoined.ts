@@ -2,7 +2,7 @@ import type { Api } from 'grammy';
 import { usersRepo, settingsRepo } from '../../db/repositories';
 import type { BotContext } from '../context';
 import * as texts from '../texts';
-import { removeUserKeyboard, urlButtonKeyboard, userMainKeyboard } from '../keyboards';
+import { joinWithChannelKeyboard, removeUserKeyboard, userMainKeyboard } from '../keyboards';
 
 const FALLBACK_INVITE = 'https://t.me/+4zgobAW0C-wzYjYy';
 
@@ -16,14 +16,14 @@ export async function hasJoinedChannel(userId: number): Promise<boolean> {
   return Boolean(user?.joined_channel_at);
 }
 
-/** Ответ «сначала вступите в канал» + кнопка-ссылка, без меню марафона */
+/** Ответ «сначала вступите в канал» + кнопки: ссылка на канал + «Я подписался» */
 export async function replyNeedChannel(ctx: BotContext): Promise<void> {
   const link = await getChannelInviteLink();
   await ctx.reply(texts.needChannelText(), {
     reply_markup: removeUserKeyboard(),
   });
   await ctx.reply(texts.joinChannelHintText(), {
-    reply_markup: urlButtonKeyboard('Присоединиться к практикуму', link),
+    reply_markup: joinWithChannelKeyboard(link),
   });
 }
 
@@ -33,7 +33,7 @@ export async function sendNeedChannel(api: Api, userId: number): Promise<void> {
     reply_markup: removeUserKeyboard(),
   });
   await api.sendMessage(userId, texts.joinChannelHintText(), {
-    reply_markup: urlButtonKeyboard('Присоединиться к практикуму', link),
+    reply_markup: joinWithChannelKeyboard(link),
   });
 }
 

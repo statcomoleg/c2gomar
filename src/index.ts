@@ -129,8 +129,8 @@ main().catch((err) => {
 process.on('unhandledRejection', (reason) => {
   const code = (reason as { error_code?: number })?.error_code;
   if (code === 409) {
-    console.log('[runner] 409 Conflict — другой инстанс уже работает. Жду 35с и выхожу чисто…');
-    setTimeout(() => process.exit(0), 35_000);
+    console.log('[runner] 409 Conflict — другой инстанс уже работает. Жду 35с и перезапускаюсь…');
+    setTimeout(() => process.exit(1), 35_000);
   } else {
     console.error('[runner] unhandledRejection:', reason);
     process.exit(1);

@@ -12,9 +12,6 @@ joinChannelHandler.callbackQuery('join_channel', async (ctx) => {
   const userId = ctx.from.id;
   console.log('[joinChannel] callback from userId:', userId);
 
-  // DEBUG — временно, чтобы убедиться что handler достигается
-  await ctx.reply(`🔍 [DEBUG] Обработчик нажатия кнопки достигнут. userId=${userId}\nСейчас проверяем подписку…`);
-
   const settings = await settingsRepo.getSettings();
   if (!settings) {
     console.error('[joinChannel] settings not found');

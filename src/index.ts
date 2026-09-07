@@ -42,19 +42,7 @@ async function main() {
 
   const bot = new Bot<BotContext>(env.BOT_TOKEN);
 
-  bot.use(
-    session({
-      initial: (): SessionData => ({}),
-    }),
-  );
-  bot.use(conversations());
-  bot.use(isAdminMiddleware);
-
-  bot.use(createConversation(awardConversation, 'award'));
-  bot.use(createConversation(addTaskConversation, 'addTask'));
-  bot.use(createConversation(broadcastConversation, 'broadcast'));
-
-  // Глобальный логгер апдейтов (временно для диагностики)
+  // Глобальный логгер — ПЕРВЫМ, до sessions/conversations, чтобы ловить все апдейты
   bot.use(async (ctx, next) => {
     const type = Object.keys(ctx.update).find((k) => k !== 'update_id') ?? 'unknown';
     if (ctx.update.callback_query) {
@@ -66,6 +54,18 @@ async function main() {
     }
     await next();
   });
+
+  bot.use(
+    session({
+      initial: (): SessionData => ({}),
+    }),
+  );
+  bot.use(conversations());
+  bot.use(isAdminMiddleware);
+
+  bot.use(createConversation(awardConversation, 'award'));
+  bot.use(createConversation(addTaskConversation, 'addTask'));
+  bot.use(createConversation(broadcastConversation, 'broadcast'));
 
   // Ошибки — не роняем процесс
   bot.catch((err) => {
@@ -100,11 +100,39 @@ async function main() {
   });
 
   console.log('Бот запускается (long polling)…');
-  run(bot);
+  run(bot, {
+    runner: {
+      fetch: {
+        allowed_updates: [
+          'message',
+          'callback_query',
+          'chat_join_request',
+          'channel_post',
+          'edited_channel_post',
+          'chat_member',
+          'my_chat_member',
+        ],
+      },
+    },
+  });
   startScheduler(bot.api);
 }
 
 main().catch((err) => {
   console.error('Fatal:', err);
   process.exit(1);
+});
+
+// Защита от бесконечной 409-петли при деплое:
+// грядёт новый деплой → старый инстанс получит SIGTERM,
+// новый получит 409, ждёт 35с и выходит без краша.
+process.on('unhandledRejection', (reason) => {
+  const code = (reason as { error_code?: number })?.error_code;
+  if (code === 409) {
+    console.log('[runner] 409 Conflict — другой инстанс уже работает. Жду 35с и выхожу чисто…');
+    setTimeout(() => process.exit(0), 35_000);
+  } else {
+    console.error('[runner] unhandledRejection:', reason);
+    process.exit(1);
+  }
 });
